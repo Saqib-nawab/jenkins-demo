@@ -1,0 +1,16 @@
+#!/bin/bash
+echo "==============================="
+echo " Jenkins Build Started"
+echo "==============================="
+echo "Branch: $GIT_BRANCH"
+echo "Commit: $GIT_COMMIT"
+echo "Date: $(date)"
+echo ""
+echo "Running tests..."
+sleep 2
+echo "Test 1 passed: Login flow"
+echo "Test 2 passed: API response"
+echo "Test 3 passed: Database check"
+echo ""
+echo "All tests passed!"
+echo "==============================="
