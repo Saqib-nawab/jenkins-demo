@@ -4,23 +4,24 @@ pipeline {
     environment {
         APP_NAME = "jenkins-demo"
         BUILD_ENV = "staging"
+        BUILD_VERSION = "1.0.${env.BUILD_NUMBER}"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo "Cloning repository..."
+                echo "Checking out code..."
+                echo "Building version: ${env.BUILD_VERSION}"
                 echo "Branch: ${env.GIT_BRANCH}"
-                echo "Commit: ${env.GIT_COMMIT}"
             }
         }
 
         stage('Build') {
             steps {
-                echo "Building..."
+                echo "Building ${env.APP_NAME} v${env.BUILD_VERSION}"
+                sh 'chmod +x build.sh'
                 sh './build.sh'
-                sh 'exit 1'    // force a failure
             }
         }
 
@@ -29,33 +30,30 @@ pipeline {
 
                 stage('Unit Tests') {
                     steps {
-                        echo "Running unit tests..."
                         sh '''
+                            echo "Running unit tests..."
                             sleep 1
-                            echo "Unit Test 1: PASSED"
-                            echo "Unit Test 2: PASSED"
-                            echo "Unit Test 3: PASSED"
+                            echo "Unit tests: 3/3 passed"
                         '''
                     }
                 }
 
                 stage('Integration Tests') {
                     steps {
-                        echo "Running integration tests..."
                         sh '''
+                            echo "Running integration tests..."
                             sleep 1
-                            echo "Integration Test 1: PASSED"
-                            echo "Integration Test 2: PASSED"
+                            echo "Integration tests: 2/2 passed"
                         '''
                     }
                 }
 
                 stage('Security Scan') {
                     steps {
-                        echo "Running security scan..."
                         sh '''
+                            echo "Scanning for vulnerabilities..."
                             sleep 1
-                            echo "No vulnerabilities found"
+                            echo "Security scan: Clean"
                         '''
                     }
                 }
@@ -64,27 +62,27 @@ pipeline {
         }
 
         stage('Deploy') {
-                steps {
-                    echo "Deploying to ${env.BUILD_ENV}..."
-                    sh '''
-                        echo "Copying files to staging server..."
-                        echo "Restarting services..."
-                        echo "Deploy complete!"
-                    '''
-                }
+            steps {
+                echo "Deploying ${env.APP_NAME} v${env.BUILD_VERSION} to ${env.BUILD_ENV}"
+                sh '''
+                    echo "Deploy started..."
+                    sleep 1
+                    echo "Deploy complete!"
+                '''
             }
+        }
 
     }
 
     post {
         always {
-            echo "Pipeline finished — cleaning up workspace"
+            echo "Pipeline #${env.BUILD_NUMBER} finished"
         }
         success {
-            echo "BUILD SUCCEEDED! App deployed to ${env.BUILD_ENV}"
+            echo "SUCCESS: ${env.APP_NAME} v${env.BUILD_VERSION} deployed!"
         }
         failure {
-            echo "BUILD FAILED! Check console output for errors"
+            echo "FAILURE: Build #${env.BUILD_NUMBER} failed — check logs!"
         }
     }
 }
