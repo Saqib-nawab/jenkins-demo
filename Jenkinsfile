@@ -5,6 +5,7 @@ pipeline {
         APP_NAME = "jenkins-demo"
         BUILD_ENV = "staging"
         BUILD_VERSION = "1.0.${env.BUILD_NUMBER}"
+        SLACK_CHANNEL = "#jenkins-builds"
     }
 
     stages {
@@ -14,6 +15,25 @@ pipeline {
                 echo "Checking out code..."
                 echo "Building version: ${env.BUILD_VERSION}"
                 echo "Branch: ${env.GIT_BRANCH}"
+            }
+        }
+
+        stage('Code Quality — SonarQube') {
+            steps {
+                // In real life this would be:
+                // withSonarQubeEnv('sonarqube-server') {
+                //     sh 'sonar-scanner'
+                // }
+                echo "Running SonarQube analysis..."
+                sh '''
+                    echo "Analyzing code quality..."
+                    sleep 1
+                    echo "Code smells found: 0"
+                    echo "Bugs found: 0"
+                    echo "Vulnerabilities: 0"
+                    echo "Coverage: 87%"
+                    echo "Quality Gate: PASSED"
+                '''
             }
         }
 
@@ -61,14 +81,74 @@ pipeline {
             }
         }
 
+        stage('Publish Test Report') {
+            steps {
+                sh '''
+                    mkdir -p test-results
+                    cat > test-results/report.html << EOF
+<html>
+<head><title>Test Report</title></head>
+<body>
+<h1>Test Report — ${APP_NAME} v${BUILD_VERSION}</h1>
+<h2 style="color:green">All Tests Passed!</h2>
+<table border="1" cellpadding="8">
+  <tr><th>Test</th><th>Status</th><th>Duration</th></tr>
+  <tr><td>Unit Test 1</td><td style="color:green">PASSED</td><td>0.3s</td></tr>
+  <tr><td>Unit Test 2</td><td style="color:green">PASSED</td><td>0.2s</td></tr>
+  <tr><td>Unit Test 3</td><td style="color:green">PASSED</td><td>0.4s</td></tr>
+  <tr><td>Integration Test 1</td><td style="color:green">PASSED</td><td>0.8s</td></tr>
+  <tr><td>Integration Test 2</td><td style="color:green">PASSED</td><td>0.6s</td></tr>
+</table>
+</body>
+</html>
+EOF
+                    echo "Test report generated!"
+                '''
+                // Publish the HTML report
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'test-results',
+                    reportFiles: 'report.html',
+                    reportName: 'Test Report'
+                ])
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                sh '''
+                    mkdir -p artifacts
+                    echo "App: ${APP_NAME}" > artifacts/build-info.txt
+                    echo "Version: ${BUILD_VERSION}" >> artifacts/build-info.txt
+                    echo "Branch: ${GIT_BRANCH}" >> artifacts/build-info.txt
+                    echo "Build Date: $(date)" >> artifacts/build-info.txt
+                    echo "Status: SUCCESS" >> artifacts/build-info.txt
+                    echo "Artifact created!"
+                    cat artifacts/build-info.txt
+                '''
+                // Archive the artifact so it's downloadable from Jenkins
+                archiveArtifacts artifacts: 'artifacts/**', fingerprint: true
+            }
+        }
+
         stage('Deploy') {
             steps {
-                echo "Deploying ${env.APP_NAME} v${env.BUILD_VERSION} to ${env.BUILD_ENV}"
-                sh '''
-                    echo "Deploy started..."
-                    sleep 1
-                    echo "Deploy complete!"
-                '''
+                // Using stored credentials safely
+                withCredentials([usernamePassword(
+                    credentialsId: 'deploy-credentials',
+                    usernameVariable: 'DEPLOY_USER',
+                    passwordVariable: 'DEPLOY_PASS'
+                )]) {
+                    sh '''
+                        echo "Deploying as user: $DEPLOY_USER"
+                        echo "Password is hidden by Jenkins: ***"
+                        echo "Deploying ${APP_NAME} v${BUILD_VERSION} to ${BUILD_ENV}..."
+                        sleep 1
+                        echo "Deploy complete!"
+                    '''
+                }
             }
         }
 
@@ -77,12 +157,23 @@ pipeline {
     post {
         always {
             echo "Pipeline #${env.BUILD_NUMBER} finished"
+            // Real Slack message would be:
+            // slackSend channel: "${env.SLACK_CHANNEL}",
+            //            message: "Build #${env.BUILD_NUMBER} finished"
+            echo "SLACK: Sending notification to ${env.SLACK_CHANNEL}..."
+            echo "SLACK: [${env.APP_NAME}] Build #${env.BUILD_NUMBER} finished on ${env.GIT_BRANCH}"
         }
         success {
-            echo "SUCCESS: ${env.APP_NAME} v${env.BUILD_VERSION} deployed!"
+            echo "SLACK: Build SUCCEEDED! v${env.BUILD_VERSION} deployed to ${env.BUILD_ENV}"
+            // Real email would be:
+            // emailext subject: "Build Success: ${env.APP_NAME}",
+            //          body: "Version ${env.BUILD_VERSION} deployed!",
+            //          to: "team@company.com"
+            echo "EMAIL: Notifying team of successful deployment..."
         }
         failure {
-            echo "FAILURE: Build #${env.BUILD_NUMBER} failed — check logs!"
+            echo "SLACK: Build FAILED! Check: ${env.BUILD_URL}"
+            echo "EMAIL: Alerting team of build failure..."
         }
     }
 }
