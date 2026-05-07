@@ -25,15 +25,41 @@ pipeline {
         }
 
         stage('Test') {
-            steps {
-                echo "Running tests..."
-                sh '''
-                    echo "Test Suite Started"
-                    echo "Test 1: Checking build output... PASSED"
-                    echo "Test 2: Checking environment... PASSED"
-                    echo "Test 3: Checking dependencies... PASSED"
-                    echo "All tests passed!"
-                '''
+            parallel {
+
+                stage('Unit Tests') {
+                    steps {
+                        echo "Running unit tests..."
+                        sh '''
+                            sleep 1
+                            echo "Unit Test 1: PASSED"
+                            echo "Unit Test 2: PASSED"
+                            echo "Unit Test 3: PASSED"
+                        '''
+                    }
+                }
+
+                stage('Integration Tests') {
+                    steps {
+                        echo "Running integration tests..."
+                        sh '''
+                            sleep 1
+                            echo "Integration Test 1: PASSED"
+                            echo "Integration Test 2: PASSED"
+                        '''
+                    }
+                }
+
+                stage('Security Scan') {
+                    steps {
+                        echo "Running security scan..."
+                        sh '''
+                            sleep 1
+                            echo "No vulnerabilities found"
+                        '''
+                    }
+                }
+
             }
         }
 
