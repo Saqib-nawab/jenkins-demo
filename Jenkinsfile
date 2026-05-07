@@ -20,10 +20,6 @@ pipeline {
 
         stage('Code Quality — SonarQube') {
             steps {
-                // In real life this would be:
-                // withSonarQubeEnv('sonarqube-server') {
-                //     sh 'sonar-scanner'
-                // }
                 echo "Running SonarQube analysis..."
                 sh '''
                     echo "Analyzing code quality..."
@@ -85,11 +81,11 @@ pipeline {
             steps {
                 sh '''
                     mkdir -p test-results
-                    cat > test-results/report.html << EOF
+                    cat > test-results/report.html << 'EOF'
 <html>
 <head><title>Test Report</title></head>
 <body>
-<h1>Test Report — ${APP_NAME} v${BUILD_VERSION}</h1>
+<h1>Test Report</h1>
 <h2 style="color:green">All Tests Passed!</h2>
 <table border="1" cellpadding="8">
   <tr><th>Test</th><th>Status</th><th>Duration</th></tr>
@@ -104,15 +100,7 @@ pipeline {
 EOF
                     echo "Test report generated!"
                 '''
-                // Publish the HTML report
-                publishHTML([
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'test-results',
-                    reportFiles: 'report.html',
-                    reportName: 'Test Report'
-                ])
+                archiveArtifacts artifacts: 'test-results/report.html', fingerprint: true
             }
         }
 
@@ -125,17 +113,14 @@ EOF
                     echo "Branch: ${GIT_BRANCH}" >> artifacts/build-info.txt
                     echo "Build Date: $(date)" >> artifacts/build-info.txt
                     echo "Status: SUCCESS" >> artifacts/build-info.txt
-                    echo "Artifact created!"
                     cat artifacts/build-info.txt
                 '''
-                // Archive the artifact so it's downloadable from Jenkins
                 archiveArtifacts artifacts: 'artifacts/**', fingerprint: true
             }
         }
 
         stage('Deploy') {
             steps {
-                // Using stored credentials safely
                 withCredentials([usernamePassword(
                     credentialsId: 'deploy-credentials',
                     usernameVariable: 'DEPLOY_USER',
@@ -143,8 +128,8 @@ EOF
                 )]) {
                     sh '''
                         echo "Deploying as user: $DEPLOY_USER"
-                        echo "Password is hidden by Jenkins: ***"
-                        echo "Deploying ${APP_NAME} v${BUILD_VERSION} to ${BUILD_ENV}..."
+                        echo "Password is hidden: ***"
+                        echo "Deploying ${APP_NAME} to ${BUILD_ENV}..."
                         sleep 1
                         echo "Deploy complete!"
                     '''
@@ -157,22 +142,14 @@ EOF
     post {
         always {
             echo "Pipeline #${env.BUILD_NUMBER} finished"
-            // Real Slack message would be:
-            // slackSend channel: "${env.SLACK_CHANNEL}",
-            //            message: "Build #${env.BUILD_NUMBER} finished"
-            echo "SLACK: Sending notification to ${env.SLACK_CHANNEL}..."
-            echo "SLACK: [${env.APP_NAME}] Build #${env.BUILD_NUMBER} finished on ${env.GIT_BRANCH}"
+            echo "SLACK: Notifying ${env.SLACK_CHANNEL}..."
         }
         success {
-            echo "SLACK: Build SUCCEEDED! v${env.BUILD_VERSION} deployed to ${env.BUILD_ENV}"
-            // Real email would be:
-            // emailext subject: "Build Success: ${env.APP_NAME}",
-            //          body: "Version ${env.BUILD_VERSION} deployed!",
-            //          to: "team@company.com"
+            echo "SUCCESS: ${env.APP_NAME} v${env.BUILD_VERSION} deployed to ${env.BUILD_ENV}!"
             echo "EMAIL: Notifying team of successful deployment..."
         }
         failure {
-            echo "SLACK: Build FAILED! Check: ${env.BUILD_URL}"
+            echo "FAILURE: Build #${env.BUILD_NUMBER} failed — check logs!"
             echo "EMAIL: Alerting team of build failure..."
         }
     }
