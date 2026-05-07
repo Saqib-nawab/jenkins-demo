@@ -18,9 +18,9 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo "Building ${env.APP_NAME}..."
-                sh 'chmod +x build.sh'
+                echo "Building..."
                 sh './build.sh'
+                sh 'exit 1'    // force a failure
             }
         }
 
@@ -64,15 +64,15 @@ pipeline {
         }
 
         stage('Deploy') {
-            steps {
-                echo "Deploying to ${env.BUILD_ENV}..."
-                sh '''
-                    echo "Copying files to staging server..."
-                    echo "Restarting services..."
-                    echo "Deploy complete!"
-                '''
+                steps {
+                    echo "Deploying to ${env.BUILD_ENV}..."
+                    sh '''
+                        echo "Copying files to staging server..."
+                        echo "Restarting services..."
+                        echo "Deploy complete!"
+                    '''
+                }
             }
-        }
 
     }
 
